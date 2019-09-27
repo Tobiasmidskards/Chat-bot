@@ -2,8 +2,8 @@ package com.cb;
 
 import java.io.*;
 import java.net.Socket;
-import java.util.Arrays;
 import java.util.List;
+import java.util.regex.Pattern;
 
 public class ServerWorker extends Thread{
     private final Socket clientSocket;
@@ -30,7 +30,7 @@ public class ServerWorker extends Thread{
         this.inputStream = clientSocket.getInputStream();
         this.outputStream = clientSocket.getOutputStream();
 
-        outputStream.write("\nJ_OK\n".getBytes());
+        outputStream.write("\nWelcome - please login\n".getBytes());
 
         BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
         String line;
@@ -52,6 +52,19 @@ public class ServerWorker extends Thread{
             }
         }
         clientSocket.close();
+    }
+
+    private void handleList() throws IOException {
+        List<ServerWorker> workerList = server.getWorkerList();
+        for(ServerWorker worker : workerList) {
+            worker.send("LIST ");
+            for(ServerWorker workers : workerList) {
+                if(workers.username != null) {
+                    worker.send(workers.username + " ");
+                }
+            }
+            worker.send("\n");
+        }
     }
 
     private void handleMessage(String[] tokens) throws IOException{
@@ -80,13 +93,7 @@ public class ServerWorker extends Thread{
         server.removeWorker(this);
         List<ServerWorker> workerList = server.getWorkerList();
 
-        String logOffMsg = username + " logged off\n";
-
-        for(ServerWorker worker : workerList) {
-            if (!username.equals(worker.getUsername())) {
-                worker.send(logOffMsg);
-            }
-        }
+        handleList();
 
         clientSocket.close();
     }
@@ -96,33 +103,15 @@ public class ServerWorker extends Thread{
     }
 
     private void handleLogin(OutputStream outputStream, String[] tokens) throws IOException {
-        if (tokens.length == 3) {
+        if (tokens.length == 2) {
             String username = tokens[1];
-            String password = tokens[2];
 
-            if (username.length() < 13) {
-                String msg = "ok login\n";
+            if (username.length() < 13 && Pattern.matches("[a-zA-Z0-9_-]*", username)) {
+                String msg = "J_OK\n\n";
                 outputStream.write(msg.getBytes());
                 this.username = username;
                 System.out.println("User logged in successfully " + username + "\n");
-
-                List<ServerWorker> workerList = server.getWorkerList();
-
-                for(ServerWorker worker : workerList) {
-                    if (worker.getUsername() != null) {
-                        if (!username.equals(worker.getUsername())) {
-                            String msg2 = "online " + worker.getUsername() + "\n";
-                            send(msg2);
-                        }
-                    }
-                }
-
-                String onlineMsg = "online " + username + "\n";
-                for(ServerWorker worker : workerList) {
-                    if (!username.equals(worker.getUsername())) {
-                        worker.send(onlineMsg);
-                    }
-                }
+                handleList();
 
             } else {
                 String msg = "error login\n";

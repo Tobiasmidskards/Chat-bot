@@ -22,15 +22,24 @@ public class ChatClient {
             System.err.println("Conn failed");
         } else {
             System.out.println("Conn success");
-            client.login("");
-            while(client.socket.isConnected()){
-                client.login("");
+            if (client.login("join toby toby\n")) {
+                System.out.println("Login success");
+            } else {
+                System.out.println("Login failed");
             }
         }
     }
 
-    private void login(String username) throws IOException {
-        this.serverOut.write("join toby toby".getBytes());
+    private boolean login(String creds) throws IOException {
+        serverOut.write(creds.getBytes());
+
+        String response = bufferedIn.readLine();
+        System.out.println("Response: " + response);
+        if ("ok login".equalsIgnoreCase(response)) {
+            return true;
+        } else {
+            return false;
+        }
     }
 
     private boolean connect() {
@@ -40,8 +49,6 @@ public class ChatClient {
             this.serverOut = socket.getOutputStream();
             this.serverIn = socket.getInputStream();
             this.bufferedIn = new BufferedReader(new InputStreamReader(serverIn));
-            Thread inputListener = new Thread(new ResponseListener(socket));
-            inputListener.start();
             return true;
         } catch (IOException e) {
             e.printStackTrace();
