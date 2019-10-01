@@ -10,7 +10,11 @@ public class ClientHandler implements Runnable {
     private final Socket socket;
     private final Server server;
 
+    private final ClientHandler client = this;
+
     private String username;
+    private int tick = 120;
+    private boolean connected = true;
 
     public ClientHandler(Socket socket, Server server) {
         this.socket = socket;
@@ -24,12 +28,13 @@ public class ClientHandler implements Runnable {
 
             if(!validateUsername()){
                 send("J_ERR 101: Username not accepted");
-                server.removeClient(this);
+                Server.removeClient(this);
+                connected = false;
                 socket.close();
                 return;
             }
 
-            System.out.println("New client connected:\n" + this.username + " - " + socket);
+            System.out.println("New client connected:\n" + this.username + " " + socket.getRemoteSocketAddress());
 
             send("J_OK");
 
@@ -47,6 +52,41 @@ public class ClientHandler implements Runnable {
 
             send("J_OK");
 
+            Thread ticker = new Thread(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        while(connected) {
+                            Thread.sleep(1000);
+                            tick -= 1;
+                            System.out.println(tick);
+                            if(tick < 0) {
+                                Server.removeClient(client);
+                                System.out.println("SERVER: Client <" + username + "> went offline");
+
+                                String activeClients = "";
+                                for (ClientHandler client : Server.clientList) {
+                                    if (client.username != username) {
+                                        activeClients += " " + client.username;
+                                    }
+                                }
+
+                                for (ClientHandler client : Server.clientList) {
+                                    client.send("SERVER: Client <" + username + "> went offline");
+                                    client.send("        LIST <" + activeClients + ">");
+                                }
+
+                                connected = false;
+                            }
+                        }
+                    } catch (InterruptedException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+
+            ticker.start();
+
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -56,17 +96,18 @@ public class ClientHandler implements Runnable {
 
     public void run() {
 
-        while (true) {
+        while (connected) {
             try {
                 String rx = inputStream.readUTF();
+
+                System.out.println(rx);
 
                 String[] tokens = rx.split("( )|(\\: )");
 
                 if (("quit").equalsIgnoreCase(tokens[0]) && tokens.length == 1) {
 
-                    server.removeClient(this);
+                    Server.removeClient(this);
                     this.socket.close();
-
 
                     System.out.println("SERVER: Client <" + this.username + "> went offline");
 
@@ -82,30 +123,34 @@ public class ClientHandler implements Runnable {
                         client.send("        LIST <" + activeClients + ">");
                     }
 
-                    break;
-
                 } else if(("data").equalsIgnoreCase(tokens[0]) && (tokens.length == 3)){
                     for (ClientHandler client : Server.clientList) {
                         if (client.username != this.username && tokens[1].equalsIgnoreCase(this.username)) {
                             client.send(this.username + ": " + tokens[2]);
                         }
                     }
+                } else if(("imav".equalsIgnoreCase(tokens[0]) && (tokens.length) == 1)) {
+                    tick = 120;
                 } else {
-                    send("J_ERR 201: Unkown command: '" + tokens[0] + "'");
+                    send("J_ERR 201: Unknown command: '" + tokens[0] + "'");
                 }
 
             } catch (IOException e) {
                 e.printStackTrace();
             }
         }
+        try {
+            socket.close();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     public void send(String message) {
         try {
             outputStream.writeUTF(message);
-
-        } catch (IOException i) {
-            System.out.println(i);
+        } catch (IOException e) {
+            System.out.println(e);
         }
 
     }

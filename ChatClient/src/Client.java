@@ -13,6 +13,7 @@ public class Client {
     private static ServerHandler serverHandler = null;
 
     private static State state = State.MENU;
+    private static String username;
 
     public static void main(String args[]) {
 
@@ -23,6 +24,7 @@ public class Client {
             public void run() {
                 while (serverHandler.connected) {
                     try {
+                        System.out.println("sending..");
                         String line = inputStream.readLine();
                         if (line.equalsIgnoreCase("QUIT")) {
                             serverHandler.send("QUIT");
@@ -34,6 +36,25 @@ public class Client {
                         }
 
                     } catch (IOException e) {
+                        serverHandler.connected = false;
+                        e.printStackTrace();
+                    }
+                }
+            }
+        });
+
+        Thread ping = new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (serverHandler.connected) {
+                    try {
+                        System.out.println("pinging..");
+                        Thread.sleep(60000);
+                        serverHandler.send("IMAV");
+                    } catch (IOException e) {
+                        serverHandler.connected = false;
+                        e.printStackTrace();
+                    } catch (InterruptedException e) {
                         e.printStackTrace();
                     }
                 }
@@ -47,15 +68,17 @@ public class Client {
                     try {
                         serverHandler.read();
                     } catch (IOException e) {
-
+                        serverHandler.connected = false;
+                        System.out.println(e);
                     }
-
                 }
 
             }
         });
 
         while (state == State.MENU) {
+            System.out.println("Welcome to Chat-Bot");
+            System.out.println("Use: JOIN [username], [ip]:[port]");
             try {
                 String line = inputStream.readLine();
 
@@ -69,8 +92,10 @@ public class Client {
 
                     if (handleLogin(tokens)) {
                         serverHandler = new ServerHandler(tokens[1], tokens[2], tokens[3]);
+                        username = tokens[1];
                         sender.start();
                         reader.start();
+                        ping.start();
                         state = State.CONNECTED;
 
                     } else {

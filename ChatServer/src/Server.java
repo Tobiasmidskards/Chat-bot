@@ -7,7 +7,7 @@ public class Server {
     private static Socket socket = null;
     private static ServerSocket server = null;
     public static ArrayList<ClientHandler> clientList = new ArrayList<>();
-    final static private int port = 1699;
+    final static private int port = 4000;
 
     public Server(int port) {
         try {
@@ -27,8 +27,6 @@ public class Server {
                 Thread t = new Thread(client);
 
                 clientList.add(client);
-
-                System.out.println(clientList);
 
                 t.start();
 

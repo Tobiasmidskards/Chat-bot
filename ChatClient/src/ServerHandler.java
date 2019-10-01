@@ -43,4 +43,8 @@ public class ServerHandler {
     public void read() throws SocketException, IOException{
         System.out.println(inputStream.readUTF());
     }
+
+    public String readReturn() throws IOException {
+        return inputStream.readUTF();
+    }
 }
